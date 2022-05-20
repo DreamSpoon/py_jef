@@ -39,7 +39,7 @@ bl_info = {
 
 import bpy
 from bpy.props import (StringProperty, BoolProperty)
-from .pj_run import (PYJEF_OT_RunCodeLine, PYJEF_OT_RunTextblock)
+from .pj_run import (PYJEF_OT_RunCodeLine, PYJEF_OT_RunTextblock, PYJEF_OT_RunTextObject)
 
 if bpy.app.version < (2,80,0):
     Region = "TOOLS"
@@ -61,6 +61,9 @@ class PYJEF_PT_RunPanel(bpy.types.Panel):
         box.prop(context.scene, "PYJEF_CodeLineToRun")
         box.operator(PYJEF_OT_RunTextblock.bl_idname)
         box.prop_search(scn, "PYJEF_TextblockToRun", bpy.data, "texts")
+        box.operator(PYJEF_OT_RunTextObject.bl_idname)
+        #box.prop_search(scn, "PYJEF_TextObjectToRun", bpy.data, "objects")
+        box.prop_search(scn, "PYJEF_TextObjectToRun", context.scene, "objects")
         box = layout.box()
         box.label(text="Output")
         box.prop_search(scn, "PYJEF_OutputTextBlock", bpy.data, "texts")
@@ -86,6 +89,7 @@ classes = [
     PYJEF_PT_RunPanel,
     PYJEF_OT_RunCodeLine,
     PYJEF_OT_RunTextblock,
+    PYJEF_OT_RunTextObject,
 ]
 
 def register():
@@ -101,6 +105,12 @@ def register():
         description="Python code to run in current context/space", default="print(\"jef\")")
     bpy.types.Scene.PYJEF_TextblockToRun = StringProperty(name="Textblock",
         description="Textblock to run as script, with specified output", default="")
+
+    #bpy.types.Scene.PYJEF_TextObjectToRun = StringProperty(name="Text Object",
+    #    description="Text object, with lines of code to be run", default="")
+    bpy.types.Scene.PYJEF_TextObjectToRun = bpy.props.PointerProperty(type=bpy.types.Object, poll=filter_on_custom_prop,
+        name="Text Object", description="Text object, with lines of code to be run")
+
     bpy.types.Scene.PYJEF_OutputShowCode = BoolProperty(name="Output Code",
         description="Include code that is run in the Output", default=True)
     bpy.types.Scene.PYJEF_OutputShowExceptions = BoolProperty(name="Output Exceptions",
@@ -139,9 +149,28 @@ def unregister():
     del bpy.types.Scene.PYJEF_CommentCodeTextOnException
     del bpy.types.Scene.PYJEF_CommentCodeText
     del bpy.types.Scene.PYJEF_CommentExceptionMessage
+    del bpy.types.Scene.PYJEF_TextObjectToRun
+    del bpy.types.Scene.PYJEF_TextblockToRun
     del bpy.types.Scene.PYJEF_CodeLineToRun
     del bpy.types.Scene.PYJEF_AlwaysNewTextblock
     del bpy.types.Scene.PYJEF_OutputTextBlock
 
 if __name__ == "__main__":
     register()
+
+
+#################################
+## define the filter method
+def filter_on_custom_prop(self, obj):
+    return obj.type == 'FONT'
+
+# define the property by using the bpy.props.PointerProperty and its poll function
+#bpy.types.Object.my_object = bpy.props.PointerProperty(
+#    type=bpy.types.Object,
+#    poll=filter_on_custom_prop
+#)
+#
+## add to your draw code a `prop_search`
+#layout.prop_search(obj, "my_object", context.scene, "objects")
+## or just simple
+#layout.prop(obj, "my_object")

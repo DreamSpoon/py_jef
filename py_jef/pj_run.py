@@ -82,7 +82,7 @@ def output_run_to_textblock(code_text, exception_msg, print_stmt_str, comment_op
                                                                "Start Date: { %B %d, %Y }\n")
     # write any exception message
     if exception_msg != None:
-        if code_text != "":
+        if code_text != None and code_text != "":
             # add comment hashtags, if needed, to codetext
             output_codetext = code_text
             if comment_options.get("comment_codetext_on_exception") or \
@@ -99,7 +99,7 @@ def output_run_to_textblock(code_text, exception_msg, print_stmt_str, comment_op
             text_to_write = text_to_write + "### Exception:\n" + output_exception_msg + "\n"
     # if no exception then write code text with newline appended
     else:
-        if code_text != "":
+        if code_text != None and code_text != "":
             # add comment hashtags, if needed, to codetext
             output_codetext = code_text
             if comment_options.get("comment_codetext"):
@@ -131,7 +131,7 @@ def output_run_to_textblock(code_text, exception_msg, print_stmt_str, comment_op
     return text_to_write
 
 class PYJEF_OT_RunCodeLine(bpy.types.Operator):
-    bl_idname = "pyjef.run_codeline"
+    bl_idname = "py_jef.run_codeline"
     bl_label = "Run Code Line"
     bl_description = "Run the following line of code"
     bl_options = {'REGISTER', 'UNDO'}
@@ -174,9 +174,9 @@ class PYJEF_OT_RunCodeLine(bpy.types.Operator):
         return self.run_code_line(context, scn.PYJEF_CodeLineToRun, output_options, comment_options)
 
 class PYJEF_OT_RunTextblock(bpy.types.Operator):
-    bl_idname = "pyjef.run_textblock"
+    bl_idname = "py_jef.run_textblock"
     bl_label = "Run Textblock"
-    bl_description = "Run the following Textblock as a script"
+    bl_description = "Run the following Textblock (Text Editor) as a script"
     bl_options = {'REGISTER', 'UNDO'}
 
     def run_textblock(self, context, code_textblock_name, output_options, comment_options):
@@ -220,3 +220,58 @@ class PYJEF_OT_RunTextblock(bpy.types.Operator):
             "comment_run_time_micros": scn.PYJEF_CommentTimeMicrosecond,
         }
         return self.run_textblock(context, scn.PYJEF_TextblockToRun, output_options, comment_options)
+
+class PYJEF_OT_RunTextObject(bpy.types.Operator):
+    bl_idname = "py_jef.run_text_object"
+    bl_label = "Run Text Object"
+    bl_description = "Run the lines contained in the following Text object (in 3DView) as a script"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def run_text_object(self, context, code_text_object_name, output_options, comment_options):
+        output_textblock = get_output_textblock(output_options.get("output_textblock_name"), output_options.get("output_always_new_textblock"))
+        if output_textblock is None:
+            self.report({"ERROR"}, "Unable to get/create output Textblock")
+            return {'CANCELLED'}
+        # get the contents of the Textblock as a string
+        #code_text_object = bpy.data.objects.get(code_text_object_name)
+        #######################
+        code_text_object = code_text_object_name
+        if code_text_object is None:
+            self.report({"ERROR"}, "Unable to get input code from Text object: " + code_text_object_name)
+            return {'CANCELLED'}
+        # try to get body (lines of text) of Text object
+        try:
+            codetext = code_text_object.data.body
+        except:
+            self.report({"ERROR"}, "Text object to run was not actually a Text object.")
+            return {'CANCELLED'}
+
+        # run the code
+        run_result_str, final_return_val = run_codetext_return_output(self, context, codetext, output_options, comment_options)
+        # write the output of the run to Textblock
+        output_textblock.write(run_result_str)
+
+        # update the Output Textblock property, in case a new output_textblock was created
+        if output_textblock != None:
+            context.scene.PYJEF_OutputTextBlock = output_textblock.name
+        return final_return_val
+
+    def execute(self, context):
+        scn = context.scene
+        output_options = {
+            "output_textblock_name": scn.PYJEF_OutputTextBlock,
+            "output_show_code": scn.PYJEF_OutputShowCode,
+            "output_show_exceptions": scn.PYJEF_OutputShowExceptions,
+            "output_show_print_stmts": scn.PYJEF_OutputShowPrintStmts,
+            "output_always_new_textblock": scn.PYJEF_AlwaysNewTextblock,
+        }
+        comment_options = {
+            "comment_codetext": scn.PYJEF_CommentCodeText,
+            "comment_codetext_on_exception": scn.PYJEF_CommentCodeTextOnException,
+            "comment_exception_message": scn.PYJEF_CommentExceptionMessage,
+            "comment_print_stmts": scn.PYJEF_CommentPrintStmts,
+            "comment_run_start_time": scn.PYJEF_CommentRunStartTime,
+            "comment_run_end_time": scn.PYJEF_CommentRunEndTime,
+            "comment_run_time_micros": scn.PYJEF_CommentTimeMicrosecond,
+        }
+        return self.run_text_object(context, scn.PYJEF_TextObjectToRun, output_options, comment_options)
